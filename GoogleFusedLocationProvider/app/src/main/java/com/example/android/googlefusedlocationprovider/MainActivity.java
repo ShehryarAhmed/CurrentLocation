@@ -1,36 +1,45 @@
 package com.example.android.googlefusedlocationprovider;
 
-import android.app.Activity;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.location.Location;
+import android.os.Handler;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.FragmentActivity;
-import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.ActivityRecognition;
+import com.google.android.gms.location.DetectedActivity;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.security.ProviderInstaller;
+import android.os.ResultReceiver;
+
+import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
-        com.google.android.gms.location.LocationListener
 {
 
+    private static final String ADDRESS_REQUESTED_KEY = "address-request-pending";
+    private static final String LOCATION_ADDRESS_KEY = "location-address";
+
+    private AddressResultReceiver mResultReceiver;
+
+    private DetectedActivityIntent mBroadCast_Receiver;
     private String LOG_TAG = "MainActivity";
     private TextView tvLcation;
     private Button updateBtn;
@@ -38,22 +47,36 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private Location mLastLocation;
+    private String
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-      /*  mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addApi(LocationServices.API)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .build();*/
+        mResultReceiver = new AddressResultReceiver(new Handler());
+
+        mBroadCast_Receiver = new DetectedActivityIntent();
         buildGoogleApiClient();
         updateBtn = (Button) findViewById(R.id.updatelocation);
         deleteBtn = (Button) findViewById(R.id.deleteUpdate);
         tvLcation = (TextView) findViewById(R.id.tvlocation);
     }
+
+    public void fetchAddressButtonHandler(View view) {
+        if (!mGoogleApiClient.isConnected() && mLastLocation != null) {
+            startIntentService();
+        }
+    }
+
+    protected void startIntentService() {
+        Intent intent = new Intent(this, FetchAddressIntentService.class);
+        intent.putExtra(Constants.RECEIVER, mResultReceiver);
+        intent.putExtra(Constants.LOCATION_DATA_EXTRA, mLastLocation);
+        startService(intent);
+    }
+
+
     protected synchronized void buildGoogleApiClient() {
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
@@ -78,25 +101,28 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mBroadCast_Receiver);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        LocalBroadcastManager.getInstance(this).registerReceiver(mBroadCast_Receiver,
+                new IntentFilter(Constants.BROADCAST_ACTION));
+    }
+
+    @Override
     public void onConnected(Bundle bundle) {
-       /* mLocationRequest = LocationRequest.create();
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        mLocationRequest.setInterval(1000);
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-*/
+
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
-            return;}
-       mLastLocation =  LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-
-       tvLcation.setText("Latitude : "+mLastLocation.getLatitude()
-               +"\n Longitude : " +mLastLocation.getLongitude()
-               +"\n Speed : "+mLastLocation.getSpeed()
-               + "\n Services Proovider : "+ mLastLocation.getProvider() );
-
-
+                return;}
+                mLastLocation =  LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+                 startIntentService();
     }
 
     @Override
@@ -114,13 +140,44 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     public void onLocationChanged(Location location) {
         tvLcation.setText(""+location.getLatitude());
         }
+    public String getActivityString(int detectedActivityType) {
+        Resources resources = this.getResources();
+        switch(detectedActivityType) {
+            case DetectedActivity.IN_VEHICLE:
+                return resources.getString(R.string.in_vehicle);
+            case DetectedActivity.ON_BICYCLE:
+                return resources.getString(R.string.on_bicycle);
+            case DetectedActivity.ON_FOOT:
+                return resources.getString(R.string.on_foot);
+            case DetectedActivity.RUNNING:
+                return resources.getString(R.string.running);
+            case DetectedActivity.STILL:
+                return resources.getString(R.string.still);
+            case DetectedActivity.TILTING:
+                return resources.getString(R.string.tilting);
+            case DetectedActivity.UNKNOWN:
+                return resources.getString(R.string.unknown);
+            case DetectedActivity.WALKING:
+                return resources.getString(R.string.walking);
+            default:
+                return resources.getString(R.string.unidentifiable_activity, detectedActivityType);
+        }
+    }
 
-        class ActivityDetectionBroadCastReceiver extends BroadcastReceiver{
+            class ActivityDetectionBroadCastReceiver extends BroadcastReceiver{
             public final String TAG = "receiver";
             @Override
             public void onReceive(Context context, Intent intent) {
+                ArrayList<DetectedActivity> updatedActivities =
+                        intent.getParcelableArrayListExtra(Constants.ACTIVITY_EXTRA);
+
+                String strStatus = "";
+                for(DetectedActivity thisActivity: updatedActivities){
+                    strStatus +=  getActivityString(thisActivity.getType()) + thisActivity.getConfidence() + "%\n";
+                }
+                tvLcation.setText(strStatus);
 
             }
         }
-        
+
 }
