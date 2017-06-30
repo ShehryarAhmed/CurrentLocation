@@ -1,6 +1,9 @@
 package com.example.android.googlefusedlocationprovider;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.support.annotation.NonNull;
@@ -11,6 +14,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.TextView;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -20,6 +24,7 @@ import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.security.ProviderInstaller;
 
 public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener,
@@ -28,6 +33,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     private String LOG_TAG = "MainActivity";
     private TextView tvLcation;
+    private Button updateBtn;
+    private Button deleteBtn;
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     private Location mLastLocation;
@@ -43,6 +50,8 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 .addOnConnectionFailedListener(this)
                 .build();*/
         buildGoogleApiClient();
+        updateBtn = (Button) findViewById(R.id.updatelocation);
+        deleteBtn = (Button) findViewById(R.id.deleteUpdate);
         tvLcation = (TextView) findViewById(R.id.tvlocation);
     }
     protected synchronized void buildGoogleApiClient() {
@@ -105,4 +114,13 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     public void onLocationChanged(Location location) {
         tvLcation.setText(""+location.getLatitude());
         }
+
+        class ActivityDetectionBroadCastReceiver extends BroadcastReceiver{
+            public final String TAG = "receiver";
+            @Override
+            public void onReceive(Context context, Intent intent) {
+
+            }
+        }
+        
 }
