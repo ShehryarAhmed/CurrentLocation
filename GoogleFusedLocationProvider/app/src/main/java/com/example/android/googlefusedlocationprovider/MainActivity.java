@@ -30,43 +30,112 @@ import android.os.ResultReceiver;
 
 import java.util.ArrayList;
 
-public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener,
-{
+import android.content.Intent;
+import android.location.Geocoder;
+import android.location.Location;
+import android.os.Handler;
+import android.os.ResultReceiver;
+import android.support.v7.app.ActionBarActivity;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
 
-    private static final String ADDRESS_REQUESTED_KEY = "address-request-pending";
-    private static final String LOCATION_ADDRESS_KEY = "location-address";
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationServices;
+
+
+public class MainActivity extends ActionBarActivity implements
+        GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+
+    protected static final String TAG = "main-activity";
+
+    protected static final String ADDRESS_REQUESTED_KEY = "address-request-pending";
+    protected static final String LOCATION_ADDRESS_KEY = "location-address";
 
     private AddressResultReceiver mResultReceiver;
+    protected GoogleApiClient mGoogleApiClient;
+    protected Location mLastLocation;
+    protected String mAddressOutput;
+    protected TextView mLocationAddressTextView;
+    private  Button mFetchAddressButton;
 
-    private DetectedActivityIntent mBroadCast_Receiver;
-    private String LOG_TAG = "MainActivity";
-    private TextView tvLcation;
-    private Button updateBtn;
-    private Button deleteBtn;
-    private GoogleApiClient mGoogleApiClient;
-    private LocationRequest mLocationRequest;
-    private Location mLastLocation;
-    private String
+    protected synchronized void buildGoogleApiClient() {
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult result) {
+        Log.i(TAG, "Connection failed: ConnectionResult.getErrorCode() = " + result.getErrorCode());
+    }
+
+    public void onDisconnected() {
+        Log.i(TAG, "Disconnected");
+    }
+
+    @Override
+    public void onConnectionSuspended(int cause) {
+        Log.i(TAG, "Connection suspended");
+        mGoogleApiClient.connect();
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         mResultReceiver = new AddressResultReceiver(new Handler());
-
-        mBroadCast_Receiver = new DetectedActivityIntent();
+        mLocationAddressTextView = (TextView) findViewById(R.id.location_address_view);
+        mFetchAddressButton = (Button) findViewById(R.id.fetch_address_button);
+        mAddressOutput = "";
         buildGoogleApiClient();
-        updateBtn = (Button) findViewById(R.id.updatelocation);
-        deleteBtn = (Button) findViewById(R.id.deleteUpdate);
-        tvLcation = (TextView) findViewById(R.id.tvlocation);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mGoogleApiClient.connect();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (mGoogleApiClient.isConnected()) {
+            mGoogleApiClient.disconnect();
+        }
     }
 
     public void fetchAddressButtonHandler(View view) {
-        if (!mGoogleApiClient.isConnected() && mLastLocation != null) {
+        // We only start the service to fetch the address if GoogleApiClient is connected.
+        if (mGoogleApiClient.isConnected() && mLastLocation != null) {
             startIntentService();
         }
+
+    }
+
+    @Override
+    public void onConnected(Bundle connectionHint) {
+        // Gets the best and most recent location currently available, which may be null
+        // in rare cases when a location is not available.
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+            }
+        mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        if (mLastLocation != null) {
+            // Determine whether a Geocoder is available.
+            startIntentService();
+        }
+
     }
 
     protected void startIntentService() {
@@ -77,107 +146,25 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     }
 
 
-    protected synchronized void buildGoogleApiClient() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
-                .addApi(LocationServices.API)
-                .build();
+    protected void displayAddressOutput() {
+        mLocationAddressTextView.setText(mAddressOutput);
     }
 
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        // connect the client
-        mGoogleApiClient.connect();
-    }
-
-    @Override
-    protected void onStop() {
-        mGoogleApiClient.disconnect();
-        super.onStop();
-        //DisConnect the client
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(mBroadCast_Receiver);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        LocalBroadcastManager.getInstance(this).registerReceiver(mBroadCast_Receiver,
-                new IntentFilter(Constants.BROADCAST_ACTION));
-    }
-
-    @Override
-    public void onConnected(Bundle bundle) {
-
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-                return;}
-                mLastLocation =  LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-                 startIntentService();
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-        Log.i(LOG_TAG, "GoogleApiClient Suspended");
-    }
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-        Log.i(LOG_TAG, "GoogleApiClient connection has failed");
-
-    }
-
-    @Override
-    public void onLocationChanged(Location location) {
-        tvLcation.setText(""+location.getLatitude());
-        }
-    public String getActivityString(int detectedActivityType) {
-        Resources resources = this.getResources();
-        switch(detectedActivityType) {
-            case DetectedActivity.IN_VEHICLE:
-                return resources.getString(R.string.in_vehicle);
-            case DetectedActivity.ON_BICYCLE:
-                return resources.getString(R.string.on_bicycle);
-            case DetectedActivity.ON_FOOT:
-                return resources.getString(R.string.on_foot);
-            case DetectedActivity.RUNNING:
-                return resources.getString(R.string.running);
-            case DetectedActivity.STILL:
-                return resources.getString(R.string.still);
-            case DetectedActivity.TILTING:
-                return resources.getString(R.string.tilting);
-            case DetectedActivity.UNKNOWN:
-                return resources.getString(R.string.unknown);
-            case DetectedActivity.WALKING:
-                return resources.getString(R.string.walking);
-            default:
-                return resources.getString(R.string.unidentifiable_activity, detectedActivityType);
-        }
-    }
-
-            class ActivityDetectionBroadCastReceiver extends BroadcastReceiver{
-            public final String TAG = "receiver";
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                ArrayList<DetectedActivity> updatedActivities =
-                        intent.getParcelableArrayListExtra(Constants.ACTIVITY_EXTRA);
-
-                String strStatus = "";
-                for(DetectedActivity thisActivity: updatedActivities){
-                    strStatus +=  getActivityString(thisActivity.getType()) + thisActivity.getConfidence() + "%\n";
-                }
-                tvLcation.setText(strStatus);
-
-            }
+    class AddressResultReceiver extends ResultReceiver {
+        public AddressResultReceiver(Handler handler) {
+            super(handler);
         }
 
+        /**
+         *  Receives data sent from FetchAddressIntentService and updates the UI in MainActivity.
+         */
+        @Override
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
+
+            // Display the address string or an error message sent from the intent service.
+            mAddressOutput = resultData.getString(Constants.RESULT_DATA_KEY);
+            displayAddressOutput();
+
+        }
+    }
 }

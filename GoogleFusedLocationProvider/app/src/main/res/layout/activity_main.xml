@@ -1,31 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-   android:layout_height="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity"
     android:orientation="vertical"
-    tools:context="com.example.android.googlefusedlocationprovider.MainActivity">
+    >
 
     <Button
-        android:id="@+id/updatelocation"
+        android:id="@+id/fetch_address_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Update"/>
+        android:text="@string/fetch_address"
+        android:onClick="fetchAddressButtonHandler" />
 
-    <Button
-        android:id="@+id/deleteUpdate"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Delete"/>
+
     <TextView
-        android:id="@+id/tvlocation"
+        android:id="@+id/location_address_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Location Goes Here :"
-    />
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:textSize="24sp"
+        />
 
 </LinearLayout>
